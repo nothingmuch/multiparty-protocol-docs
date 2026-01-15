@@ -8,25 +8,25 @@ Transactions meeting the demand of more than one "taker" can be more efficient, 
 
 The following protocol aims to generalize the type of order matching JoinMarket supports, allowing multiple users' intents to be aggregated together.
 
-This isn't a transaction construction protocol (e.g. WabiSabi), but a precursor to such a protocol. This protocol bootstraps such a protocol by finding consensus on initial set of UTXOs whose (honest) owners intend to spend in a collaborative transaction. Refer to the last section for a brief discussion of such a protocol.
-
 ## Overview of proposed solution
 
-This document describes a permissionless, peer-to-peer protocol for negotiating collaborative transaction construction. This takes place over two primary phases: bilateral negotiation, followed by aggregation. Successful execution of the protocol results in a coalition of UTXO owners unanimously deciding to build a transaction together.
+This document describes a permissionless, peer-to-peer protocol for negotiating the initiation of a collaborative transaction construction. This takes place over two primary phases: bilateral negotiation, followed by aggregation. Successful execution of the protocol results in a coalition of UTXO owners unanimously agreeing to build a transaction together.
+
+This isn't a transaction construction protocol (e.g. WabiSabi), but a precursor to such a protocol. This protocol bootstraps a compatible transaction a protocol by finding consensus on initial set of UTXOs whose (honest) owners intend to spend in a collaborative transaction. Refer to the last section for a brief discussion of such a protocol and how it composes with this one.
 
 ### Bilateral negotiation
 
-A proposer, the owner of a UTXO, selects some other UTXOs and initiates peer-to-peer bilateral negotiations with the owners of these coins by sending them a message that includes a *co-spend proposal*. This expresses an intent to cooperate to spend this set of coins together in a single Bitcoin transaction.
+A proposer, the owner of one or more UTXOs, selects UTXOs belonging to others from an "order book". The proposer initiates peer-to-peer bilateral negotiations with the owners of these coins by sending them a message that includes a *co-spend proposal*. This expresses an intent to cooperate to spend this set of coins together in a single Bitcoin transaction.
 
-Co-spend proposals are publicly verifiable, confidential adjustments to the effective values of the specified coins. These adjustments can represent arbitrary incentive structures. Whether a proposal takes effect (i.e. the adjustment is applied) is contingent on the constraints specified in the proposal being satisfied by the transaction that spends the specified UTXOs. For example, a proposal may require that non-SegWit inputs be excluded for TxID stability, or that the feerate be within an acceptable range, among other constraints.
+Co-spend proposals are publicly verifiable, confidential adjustments to the effective values of the specified coins. These adjustments can represent arbitrary payoff structures. Whether a proposal takes effect (i.e. the adjustment is applied) is contingent on the constraints specified in the proposal being satisfied in a transaction construction session intended on spending the specified UTXOs. For example, a proposal may require that non-SegWit inputs be excluded for TxID stability, or that the feerate be within an acceptable range, among other constraints.
 
-Co-spend proposals rely on cryptography to keep each coin's adjustment hidden, except from the proposer and each coin's owner. The proposer's UTXO is indistinguishable from the other UTXOs. Before a proposal is unanimously accepted, it isn't known which UTXO owners have accepted the proposal.
+Co-spend proposals rely on cryptography to keep each coin's adjustment hidden, except for that coin's owner and the proposer. The proposer's UTXO is indistinguishable from the other UTXOs. Before a proposal is unanimously accepted, it isn't known which UTXO owners have accepted the proposal.
 
 ### Aggregation
 
 Co-spend proposals aren't exclusive. Many proposals can be aggregated together before collaboratively constructing a transaction in which the combination of all the aggregated proposals is in effect. The UTXOs specified in proposals that are aggregated together may overlap but don't need to; the main requirement is for the constraints to be compatible.
 
-Fully accepted proposals can be broadcast and then aggregated with other compatible proposals. Aggregation makes it possible for multiple participants to simultaneously optimize their outcome according to their individual preferences. When they value privacy, this is a positive sum interaction and aggregation optimizes the generated surplus.
+Fully accepted proposals can be broadcast and then aggregated with other compatible proposals. Aggregation makes it possible for multiple participants to simultaneously optimize for their desired outcome according to their individual preferences. When they value privacy, or any other kind of positive sum interaction, aggregation generates surplus from which all participants may benefit.
 
 To aggregate, several proposals are bundled together with a *coalition proposal* that all parties must agree to. Unanimous acceptance of such a coalition proposal signals that everyone is ready to construct a transaction.
 
@@ -54,19 +54,19 @@ Because exclusivity of spending attempts by inputs can't be enforced without glo
 
 This protocol is mostly agnostic to the cost function that describes the peers' preferences.
 
-Much like in the problem of coin selection (which this work seeks to generalize), the cost function is denominated in sats, and it's the combination of objective terms (i.e. the fee cost) and subjective ones (any positive utility obtained from transacting, which must dominate over the objective costs).
+Much like in the problem of coin selection (which this work aims to generalize), the cost function is denominated in sats, and it's the combination of objective terms (i.e. the fee cost) and subjective ones (any positive utility obtained from transacting, which by definition must dominate over the objective costs for a self-interested, not necessarily honest peer to agree to sign the transaction).
 
-Although these are out of scope for this document, privacy-related terms might quantify things like how much cover other peers' coins provide, as per the sub-transaction model, or perceived Sybil resistance against $n-1$ deanonymization attacks (for instance, an adversary using older coins incurs a higher cost to do such an attack).
+Although out of scope for this specific document, privacy-related terms are assumed quantify things like how much cover other peers' coins provide in Maurer et al's the sub-transaction model, or an estimate the cost to an adversary an $n-1$ deanonymization attack (for instance, an adversary using older coins incurs a higher cost to do such an attack, as that liquidity is must be effectively locked up to become old).
 
 A precondition for liveness is that any such cost function is monotonically decreasing in new information revealed during transaction construction.
 
-Concretely, whenever the action of some peer is revealed (i.e. when an input or output is added), at worst, other peers should be indifferent to this, but they may also obtain positive utility. If this isn't the case, parties may rationally choose to defect. The purpose of the constraints in proposals is to allow the honest subset peers to avoid such non-malicious conflicts a priori, since monotonicity is required for liveness, a peer that engages in the protocol without adhering to this restriction and refuses to sign is deviating from the protocol, and therefore by definition not a member of the honest subset.
+Concretely, this means that whenever the action of some peer is revealed (i.e. when an input or output is added), at worst, other peers should be indifferent to this, but they may also obtain positive utility. If this isn't the case, parties may rationally choose to defect. The purpose of the constraints in proposals is to allow the honest subset peers to avoid such non-malicious conflicts a priori. Since monotonicity is required for liveness, a peer that engages in the protocol without adhering to this restriction and refuses to sign is deviating from the protocol, and therefore by definition not a member of the honest subset.
 
 ## Simplified example
 
 Note that this example omits many details discussed below.
 
-Alice, Bob, Carol, and Dave are owners of UTXOs $A$, $B$, $C$, and $D$, respectively. Alice wants to CoinJoin with Bob and Carol. She creates a co-spend proposal with UTXOs $\{ A, B, C \}$. In this proposal, she adjusts her UTXO $A$ down by 100 sats, and adjusts $B$ and $C$ up by 50 sats each, providing an incentive for Bob and Carol to accept. She sends this to Bob and Carol, who accept, after which the proposal is fully accepted and broadcast.
+Alice, Bob, Carol, and Dave are owners of UTXOs $A$, $B$, $C$, and $D$, respectively. Alice wants to CoinJoin with Bob and Carol. She creates a co-spend proposal with UTXOs $\{ A, B, C \}$. In this proposal, she adjusts her UTXO $A$ down by 100 sats, and adjusts $B$ and $C$, perhaps up by 50 sats each, providing an incentive for Bob and Carol to accept. She sends this to Bob and Carol, who accept, after which the proposal is fully accepted and broadcast.
 
 For all Bob knows, either Carol or Alice made the proposal, and the same goes for Carol, not knowing if it was Alice or Bob. Bob only learns that he was offered 50 sats; he doesn't learn how much Carol (or whomever) was offered. All Bob knows is that the 50 sats, which he would receive if a transaction was constructed with this proposal in effect, would be paid for by one of the UTXOs $\{A, C\}$.
 
@@ -190,18 +190,19 @@ The following are all numerical intervals under intersection:
 
 - Transaction consensus fields
   - version
-  - individual flag bits
+  - individual flag bits (top is {0,1} then {0}, {1}, bottom is {})
   - nIns
-  - (nOuts constrains cannot be enforced and so can't be included)
+  - not included: nOuts, (min cannot be enforced and so can't be included, max is enforced indirectly by vbytes allocation see below)
   - nSequence (constrains all nSequence fields)
   - nLocktime
 - Non-consensus parameters
   - feerate
-  - vbytes allocation per input (nIns must be set accordingly to pass standardness or consensus limits)
+  - max total vbytes per tx (divide by nIns and round down for allocation per input, nIns must be set accordingly to pass standardness or consensus limits)
 
 The following are sets under intersection:
 
-- Allowed input types
+- Allowed input types (catchall "unknown" or "arbitrary" as one of the variants, variants for standard or well known output types)
+- Allowed output types
 
 ### Flood protection for partially accepted proposals
 
